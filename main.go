@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
+	"errors"
+	"os"
+	"regexp"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -27,20 +28,20 @@ type ImageAPIResponse struct {
 }
 
 func main() {
-	var accessToken string
-	flag.StringVar(&accessToken, "access_token", "", "gyazo api access token")
-	flag.Parse()
+	// run with pwsh $env:GYAZO_ACCESS_TOKEN="xyz" go run .
+	accessToken := os.Getenv("GYAZO_ACCESS_TOKEN")
 
 	if accessToken == "" {
 		log.Fatal("access_token is required")
 	}
 
+	// not sure if correct xd
 	if err := os.Mkdir("images", 0777); err != nil {
-		if err.Error() != "mkdir images: file exists" { // If the folder exists already its nothing to be worried about
+		if !errors.Is(err, os.ErrExist){ // If the folder exists already its nothing to be worried about
 			log.Fatal(err)
 		}
 	}
-
+	
 	downloadClient := grab.NewClient()
 	httpClient := &http.Client{}
 
@@ -53,9 +54,11 @@ func main() {
 				continue
 			}
 
-			fileName := getNewFileName(&image)
+			originalfileName := getNewFileName(&image)
+			var re = regexp.MustCompile("[\\\\/:*?\"<>|]")
+			fileName := re.ReplaceAllString(originalfileName, "") //rename for win
 
-			fmt.Println("Processing", fileName)
+			fmt.Println("Processing...", originalfileName, "new filename...", fileName)
 			req, err := grab.NewRequest("./images/"+fileName, image.URL)
 			if err != nil {
 				log.Fatal(err)
